@@ -1,0 +1,48 @@
+---
+title: "TP-01 Javier Duque"
+output: html_notebook
+---
+
+## Preparacion de los datos (I)
+
+Comenzamos leyendo el dataframe 
+
+```{r echo=TRUE, warning=FALSE}
+library(readr)
+library(tidyverse)
+
+#Se lee el dataset y se procede a revisar la estructura de los datos
+ar_properties <- read_csv("~/GitHub/EEA2019/TP/ar_properties.csv")
+glimpse(ar_properties)
+```
+
+Ahora se realiza un filtro para quedarse con los registros:
+i.   Pertenecen a Argentina y Capital Federal
+ii.  Cuyo precio esta en dolares (USD)
+iii. El tipo de propiedad sea: Departamento, PH o Casa
+iv.  El tipo de operacion sea Venta
+
+Se seleccionan las variables de interes para el analisis:
+id, l3, rooms, bedrooms, bathrooms, surface_total, surface_covered, price y property_type
+
+```{r echo=TRUE, warning=FALSE}
+#Se realiza un filtrado de las variables que se desean obtener y luego se seleccionan las variables de interes
+propertiesdf <- ar_properties %>% 
+  filter(l1=="Argentina", l2=="Capital Federal" , currency=="USD", property_type== "Departamento"|property_type=="PH"| property_type=="Casa", operation_type=="Venta")%>%
+  select("id","l3","rooms","bedrooms","bathrooms","surface_total","surface_covered", "price","property_type")
+
+propertiesdf
+```
+
+## Analisis exploratorios (I)
+
+Obtener la cantidad de valores unicos y de valores faltantes (NAs) para cada una de estas variables
+```{r echo=TRUE, warning=FALSE}
+# Se cuentan la cantidad de valores unicos por cada variable
+map(propertiesdf,~n_distinct(.))
+
+```
+```{r echo=TRUE, warning=FALSE}
+# Se cuentan la cantidad de valores faltantes por cada variable
+map(propertiesdf, ~sum(is.na(.)))
+```
