@@ -3,18 +3,18 @@ title: "TP-01 Javier Duque"
 output: html_notebook
 ---
 
-## Preparacion de los datos (I)
+## 1. Preparacion de los datos (I)
 
 Comenzamos leyendo el dataframe y se muestra la estructura de las variables, el tipo de datos
 
-```{r echo=TRUE, warning=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 #Se cargan las librerias a usar 
 library(readr)
 library(tidyverse)
 library(GGally)
 ```
 
-```{r echo=TRUE, warning=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 #Se lee el dataset y se procede a revisar la estructura de los datos
 ar_properties <- read_csv("~/GitHub/EEA2019/TP/ar_properties.csv")
 glimpse(ar_properties)
@@ -29,7 +29,7 @@ iv.  El tipo de operacion sea Venta
 Se seleccionan las variables de interes para el analisis:
 id, l3, rooms, bedrooms, bathrooms, surface_total, surface_covered, price y property_type
 
-```{r echo=TRUE, warning=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 #Se realiza un filtrado de las variables que se desean obtener y luego se seleccionan las variables de interes
 dataframe <- ar_properties %>% 
   filter(l1=="Argentina", 
@@ -42,25 +42,25 @@ dataframe <- ar_properties %>%
 dataframe
 ```
 
-## Analisis exploratorios (I)
+## 2. Analisis exploratorios (I)
 
 Obtener la cantidad de valores unicos y de valores faltantes (NAs) para cada una de estas variables
 
 Se muestra el conteo de valores unicos por cada variable
-```{r echo=TRUE, warning=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 # Se cuentan la cantidad de valores unicos por cada variable
 map(dataframe,~n_distinct(.))
 
 ```
 
 Se muestra el conteo de valores faltantes por cada variable
-```{r echo=TRUE, warning=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 # Se cuentan la cantidad de valores faltantes por cada variable
 map(dataframe, ~sum(is.na(.)))
 ```
 
 Se realiza una matriz de correlacion entre las variables
-```{r echo=TRUE, warning=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 # Se realiza una matriz de correlacion, se presentan como una matriz diagonal puesto que el resultado es una matriz simetrica
 datacorrelate <- dataframe %>%
   select("rooms","bedrooms","bathrooms","surface_total","surface_covered", "price")%>%
@@ -69,13 +69,13 @@ datacorrelate <- dataframe %>%
 datacorrelate
 ```
 
-## Preparacion de los datos (II)
+## 3. Preparacion de los datos (II)
 
 En el punto 2 deberian haber encontrado que la variable bedrooms presenta una alta proporción de valores faltantes y que presenta una fuerte correlacion con la variable rooms.
 Se procede a eliminar la variable "Bedrooms"
 
 Luego se procede a eliminar todos los registros que contengan valores faltantes
-```{r echo=TRUE, warning=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 # Se elimina la variable bedrooms
 datacomplete <- dataframe %>%
   select(-c("bedrooms"))%>%
@@ -84,18 +84,18 @@ datacomplete <- dataframe %>%
 datacomplete
 ```
 
-## Analisis exploratorios (II)
+## 4. Analisis exploratorios (II)
 
 Obtener estadisticas descriptivas para la variable precio (cuartiles, promedio, minimo y maximo) y realizar un histograma de la variable
 
-```{r echo=TRUE, warning=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 # Se obtienen las caracteristicas descriptivas
 datacomplete%>%
   select(price)%>%
   summary()
 ```
 
-```{r echo=TRUE, warning=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 #Se realiza el histograma de la varaible precio
 ggplot(datacomplete,aes(price)) +
   geom_histogram(bins = 100) +
@@ -104,7 +104,7 @@ ggplot(datacomplete,aes(price)) +
 
 Obtener estadisticas descriptivas para la variable precio (cuartiles, promedio, minimo y maximo) por cada tipo de propiedad.
 
-```{r echo=TRUE, warning=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 # Se obtienen las caracteristicas descriptivas de la variable precio por tipo de propiedad 
 datacomplete%>%
   group_by(factor(property_type))%>%
@@ -117,8 +117,8 @@ datacomplete%>%
 ```
 
 Realizar un grafico de boxplot de la variable precio por tipo de propiedad
-```{r echo=TRUE, warning=FALSE}
-# Se obtienen las caracteristicas descriptivas de la variable precio por tipo de propiedad 
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# Se realiza un Boxplot de la variable precio por el tipo de propiedad
 ggplot(datacomplete, aes(property_type,price, fill = property_type))+
   geom_boxplot()
   
@@ -126,9 +126,113 @@ ggplot(datacomplete, aes(property_type,price, fill = property_type))+
 
 Realizar un correlagrama usando GGAlly
 
-```{r echo=TRUE, warning=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+#Se realiza un correlograma de las variables, se eliminan "id" y "l3" ya que tienen demasiados valores unicos
 datagraph <- datacomplete%>%
   select(-c("id","l3"))
 ggpairs(datagraph,  mapping = aes(color = property_type))
+
+```
+
+
+## 5. Outliers
+Eliminar los outliers de la variable precio utilizando el metodo de Z-Score filtrando un valor del mismo mayor a 2
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+
+#calculamos el zscore y luego aplicamos el filtro con un  Z-Score mayor a 2 para eliminacion
+datacomplete$zscore<-(datacomplete$price-mean(datacomplete$price))/sd(datacomplete$price)
+umbral <- 2
+data_sinoutliers <- datacomplete %>%
+  filter((zscore > (-1)*umbral) & (zscore < umbral))
+
+datacomplete %>%
+    arrange(zscore)
+
+
+```
+
+## 6. Analisis exploratorios (III)
+Repetir los 4 análisis exploratorios realizados en el punto 4 y realizar unos breves comentarios sobre los cambios que encontraron
+
+Obtener estadisticas descriptivas para la variable precio (cuartiles, promedio, minimo y maximo) y realizar un histograma de la variable
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# Se obtienen las caracteristicas descriptivas
+data_sinoutliers%>%
+  select(price)%>%
+  summary()
+```
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+#Se realiza el histograma de la varaible precio
+ggplot(data_sinoutliers,aes(price)) +
+  geom_histogram(bins = 50) +
+  labs(title = "Histograma de precio")
+```
+
+Obtener estadisticas descriptivas para la variable precio (cuartiles, promedio, minimo y maximo) por cada tipo de propiedad.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# Se obtienen las caracteristicas descriptivas de la variable precio por tipo de propiedad 
+data_sinoutliers%>%
+  group_by(factor(property_type))%>%
+  summarise(mean(price),
+            quantile(price,0.25),
+            quantile(price,0.75),
+            min(price),
+            max(price))
+
+```
+
+Realizar un grafico de boxplot de la variable precio por tipo de propiedad
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# Se obtienen las caracteristicas descriptivas de la variable precio por tipo de propiedad 
+ggplot(data_sinoutliers, aes(property_type,price, fill = property_type))+
+  geom_boxplot()
+  
+```
+
+Realizar un correlagrama usando GGAlly
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+datagraph <- data_sinoutliers%>%
+  select(-c("id","l3"))
+ggpairs(datagraph,  mapping = aes(color = property_type))
+
+```
+
+## 7. Modelo lineal
+Realizar un modelo lineal simple para explicar el precio en función de las habitaciones (rooms) y otro modelo que explique el precio en función de la superficie total (surface_total)
+
+Modelo lineal simple del precio en funcion de las habitaciones
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# Se realiza el modelo de regresion lineal simple
+rl_model<-lm(price ~ rooms, data = data_sinoutliers)
+summary(rl_model)
+
+```
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+#Graficamos el modelo de regresion obtenido
+ggplot(data_sinoutliers, aes(x = rooms, y = price)) +
+  geom_point(aes(y = price)) +
+  geom_smooth(method = lm, se = FALSE) 
+
+```
+
+Modelo lineal simple del precio en funcion de la superficie total (surface_total)
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# Se realiza el modelo de regresion lineal simple
+rl_model<-lm(price ~ surface_total, data = data_sinoutliers)
+summary(rl_model)
+
+```
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+#Graficamos el modelo de regresion obtenido
+ggplot(data_sinoutliers, aes(x = surface_total, y = price)) +
+  geom_point(aes(y = price)) +
+  geom_smooth(method = lm, se = FALSE) 
 
 ```
