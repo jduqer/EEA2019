@@ -1,0 +1,134 @@
+---
+title: "TP-01 Javier Duque"
+output: html_notebook
+---
+
+## Preparacion de los datos (I)
+
+Comenzamos leyendo el dataframe y se muestra la estructura de las variables, el tipo de datos
+
+```{r echo=TRUE, warning=FALSE}
+#Se cargan las librerias a usar 
+library(readr)
+library(tidyverse)
+library(GGally)
+```
+
+```{r echo=TRUE, warning=FALSE}
+#Se lee el dataset y se procede a revisar la estructura de los datos
+ar_properties <- read_csv("~/GitHub/EEA2019/TP/ar_properties.csv")
+glimpse(ar_properties)
+```
+
+Ahora se realiza un filtro para quedarse con los registros:
+i.   Pertenecen a Argentina y Capital Federal
+ii.  Cuyo precio esta en dolares (USD)
+iii. El tipo de propiedad sea: Departamento, PH o Casa
+iv.  El tipo de operacion sea Venta
+
+Se seleccionan las variables de interes para el analisis:
+id, l3, rooms, bedrooms, bathrooms, surface_total, surface_covered, price y property_type
+
+```{r echo=TRUE, warning=FALSE}
+#Se realiza un filtrado de las variables que se desean obtener y luego se seleccionan las variables de interes
+dataframe <- ar_properties %>% 
+  filter(l1=="Argentina", 
+         l2=="Capital Federal", 
+         currency=="USD", 
+         property_type %in% c("Departamento","PH", "Casa"), 
+         operation_type=="Venta")%>%
+  select("id","l3","rooms","bedrooms","bathrooms","surface_total","surface_covered", "price","property_type")
+
+dataframe
+```
+
+## Analisis exploratorios (I)
+
+Obtener la cantidad de valores unicos y de valores faltantes (NAs) para cada una de estas variables
+
+Se muestra el conteo de valores unicos por cada variable
+```{r echo=TRUE, warning=FALSE}
+# Se cuentan la cantidad de valores unicos por cada variable
+map(dataframe,~n_distinct(.))
+
+```
+
+Se muestra el conteo de valores faltantes por cada variable
+```{r echo=TRUE, warning=FALSE}
+# Se cuentan la cantidad de valores faltantes por cada variable
+map(dataframe, ~sum(is.na(.)))
+```
+
+Se realiza una matriz de correlacion entre las variables
+```{r echo=TRUE, warning=FALSE}
+# Se realiza una matriz de correlacion, se presentan como una matriz diagonal puesto que el resultado es una matriz simetrica
+datacorrelate <- dataframe %>%
+  select("rooms","bedrooms","bathrooms","surface_total","surface_covered", "price")%>%
+  cor(.,use="pairwise.complete.obs")
+
+datacorrelate
+```
+
+## Preparacion de los datos (II)
+
+En el punto 2 deberian haber encontrado que la variable bedrooms presenta una alta proporción de valores faltantes y que presenta una fuerte correlacion con la variable rooms.
+Se procede a eliminar la variable "Bedrooms"
+
+Luego se procede a eliminar todos los registros que contengan valores faltantes
+```{r echo=TRUE, warning=FALSE}
+# Se elimina la variable bedrooms
+datacomplete <- dataframe %>%
+  select(-c("bedrooms"))%>%
+  na.omit(.)        #Se eliminan los registros que contienen valores faltantes
+
+datacomplete
+```
+
+## Analisis exploratorios (II)
+
+Obtener estadisticas descriptivas para la variable precio (cuartiles, promedio, minimo y maximo) y realizar un histograma de la variable
+
+```{r echo=TRUE, warning=FALSE}
+# Se obtienen las caracteristicas descriptivas
+datacomplete%>%
+  select(price)%>%
+  summary()
+```
+
+```{r echo=TRUE, warning=FALSE}
+#Se realiza el histograma de la varaible precio
+ggplot(datacomplete,aes(price)) +
+  geom_histogram(bins = 100) +
+  labs(title = "Histograma de precio")
+```
+
+Obtener estadisticas descriptivas para la variable precio (cuartiles, promedio, minimo y maximo) por cada tipo de propiedad.
+
+```{r echo=TRUE, warning=FALSE}
+# Se obtienen las caracteristicas descriptivas de la variable precio por tipo de propiedad 
+datacomplete%>%
+  group_by(factor(property_type))%>%
+  summarise(mean(price),
+            quantile(price,0.25),
+            quantile(price,0.75),
+            min(price),
+            max(price))
+
+```
+
+Realizar un grafico de boxplot de la variable precio por tipo de propiedad
+```{r echo=TRUE, warning=FALSE}
+# Se obtienen las caracteristicas descriptivas de la variable precio por tipo de propiedad 
+ggplot(datacomplete, aes(property_type,price, fill = property_type))+
+  geom_boxplot()
+  
+```
+
+Realizar un correlagrama usando GGAlly
+
+```{r echo=TRUE, warning=FALSE}
+datagraph <- datacomplete%>%
+  select(-c("id","l3"))
+ggpairs(datagraph,  mapping = aes(color = property_type))
+
+```
