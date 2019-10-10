@@ -71,6 +71,7 @@ datacorrelate
 ## 3. Preparacion de los datos (II)
 
 En el punto 2 deberian haber encontrado que la variable bedrooms presenta una alta proporción de valores faltantes y que presenta una fuerte correlacion con la variable rooms.
+
 #### Se procede a eliminar la variable "Bedrooms"
 
 #### Luego se procede a eliminar todos los registros que contengan valores faltantes
