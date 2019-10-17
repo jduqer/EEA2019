@@ -16,17 +16,19 @@ library(GGally)
 
 ```{r echo=TRUE, warning=FALSE}
 #Se lee el dataset y se procede a revisar la estructura de los datos
-ar_properties <- read_csv("~/GitHub/EEA2019/TP/ar_properties.csv")
+ar_properties <- read_csv("~/Maestria DM/Enfoque estadistico del aprendizaje/EEA2019JD/EEA2019/TP/ar_properties.csv")
 glimpse(ar_properties)
 ```
 
-Ahora se realiza un filtro para quedarse con los registros:
+Se realiza un filtro para quedarse con los registros:
+
 i.   Pertenecen a Argentina y Capital Federal
 ii.  Cuyo precio esta en dolares (USD)
 iii. El tipo de propiedad sea: Departamento, PH o Casa
 iv.  El tipo de operacion sea Venta
 
 Se seleccionan las variables de interes para el analisis:
+
 id, l3, rooms, bedrooms, bathrooms, surface_total, surface_covered, price y property_type
 
 ```{r echo=TRUE, warning=FALSE}
@@ -52,11 +54,18 @@ Obtener la cantidad de valores unicos y de valores faltantes (NAs) para cada una
 map(dataframe,~n_distinct(.))
 ```
 
+En la tabla anterior se puede dar por descartada la variable "id" ya que esta por ser el identificador unico debe tener un unico valor por registro, en cuanto la variable de superficie se ve una diversidad de valores diferentes lo que es algo que puede deberse a la forma de la toma de los datos y la precision de la medicion. En cuanto a la variable "property_type" deberia salir solo tres valores puesto que fue el filtro aplicado previamente
+
+
 #### Se muestra el conteo de valores faltantes por cada variable
 ```{r echo=TRUE, warning=FALSE}
 # Se cuentan la cantidad de valores faltantes por cada variable
 map(dataframe, ~sum(is.na(.)))
 ```
+
+Las variable de "bedrooms" presenta un alto valor de faltantes, por lo que parece que es una variable que no es muy tomada en cuenta para definir un valor real de la propiedad o se entiende que puede ser una variable complementaria de la "rooms"
+
+La variable de "price" no presentan faltantes lo cual es idoneo para realizar un analisis de esta variable a futuro.
 
 #### Se realiza una matriz de correlacion entre las variables
 ```{r echo=TRUE, warning=FALSE}
@@ -105,6 +114,8 @@ ggplot(datacomplete,aes(price)) +
   labs(title = "Histograma de precio")
 ```
 
+El histograma presenta unos outliers por lo que hace que se vea una mayor concentracion de datos en una franja y pocos sobre los valores altos. Se puede ver que tiene una distribucion sesgada.
+
 #### Obtener estadisticas descriptivas para la variable precio (cuartiles, promedio, minimo y maximo) por cada tipo de propiedad.
 
 ```{r echo=TRUE, warning=FALSE}
@@ -125,6 +136,8 @@ ggplot(datacomplete, aes(property_type,price, fill = property_type))+
   geom_boxplot()
 ```
 
+Se puede evidenciar que hay registros con valores extremos, esto no se debe a la toma del dato sino a la distribucion del mismo, puesto que al ser precio de una propiedad y no tener todos los valores que estan presentes a la hora de definir un valor estos podrian verse mas elevados, por ser propiedades de mas tamaño, menos antiguedad, mayores comodidades, mejor ubicacion.
+
 #### Realizar un correlagrama usando GGAlly
 
 ```{r echo=TRUE, warning=FALSE}
@@ -133,18 +146,42 @@ datagraph <- datacomplete%>%
   select(-c("id","l3"))
 ggpairs(datagraph,  mapping = aes(color = property_type))
 ```
-
+Al analizar el grafico de correlacion entre las variables, se ve un poco extraño como la variable precio y las variables asociadas a la superficie de la propiedad poseen una correlacion baja, aunque en la realidad esta es una caracteristica que se tiene en cuenta a la hora de definir un precio para la propiedad. En cuanto a la correlacion entre precio y las variables bathrooms y rooms presentan la correlacion mas alta lo que si seria algo logico.
 
 ## 5. Outliers
-#### Eliminar los outliers de la variable precio utilizando el metodo de Z-Score filtrando un valor del mismo mayor a 2
+#### Eliminar los outliers de la variable precio 
+
+Se usara un metodo de eliminacion de outliers mediante el rango intercuartil, es importante realizar dicha eliminacion teniendo como filtro el tipo de propiedad. Para este caso se tendra en cuanta los valores maximo a una distancia de 1.5 veces el IRQ valor que se elige de forma aleatoria despues de revisar el grafico de Boxplot
 
 ```{r echo=TRUE, warning=FALSE}
 
-#calculamos el zscore y luego aplicamos el filtro con un  Z-Score mayor a 2 para eliminacion
-datacomplete$zscore<-(datacomplete$price-mean(datacomplete$price))/sd(datacomplete$price)
-umbral <- 2
+#calculamos el IRQ de acuerdo a cada tipo de propiedad
+#para propiedad tipo Casa
+datoscasa <- datacomplete %>% 
+  filter(property_type=='Casa')
+
+valorcuantiles_casa <- quantile(datoscasa$price, c(0.25,0.75))
+IRQ_Casa <- valorcuantiles_casa[2] - valorcuantiles_casa[1]
+
+#para propiedad tipo Departamento
+datosDepartamento <- datacomplete %>% 
+  filter(property_type=='Departamento')
+valorcuantiles_departamento <- quantile(datosDepartamento$price, c(0.25,0.75))
+IRQ_Departamento <- valorcuantiles_departamento[2] - valorcuantiles_departamento[1]
+
+#para propiedad tipo Departamento
+datosPH <- datacomplete %>% 
+  filter(property_type=='PH')
+valorcuantiles_PH <- quantile(datosPH$price, c(0.25,0.75))
+IRQ_PH <- valorcuantiles_PH[2] - valorcuantiles_PH[1]
+
+
+#ahora con este valores hacemos el filtro en el dataset global 
 data_sinoutliers <- datacomplete %>%
-  filter((zscore > (-1)*umbral) & (zscore < umbral))
+  filter(
+    (property_type=='Casa' & price >= valorcuantiles_casa[1]-IRQ_Casa*1.5 & price <= valorcuantiles_casa[2]+IRQ_Casa+1.5)|
+    (property_type=='Departamento'& price >= valorcuantiles_departamento[1]-IRQ_Departamento*1.5 & price <= valorcuantiles_departamento[2]+IRQ_Departamento*1.5)|
+    (property_type=='PH' & price >= valorcuantiles_PH[1]-IRQ_PH*1.5 & price <= valorcuantiles_PH[2]+IRQ_PH*1.5))
 
 glimpse(data_sinoutliers)
 ```
@@ -191,6 +228,8 @@ ggplot(data_sinoutliers, aes(property_type,price, fill = property_type))+
   geom_boxplot()
 ```
 
+Se puede ver que los valores promedio entre los tipo de propiedad PH y departamento tienen alguna similitud, en cambio en casa es un poco mas alto, esto se puede deber a que normalmente las casas presentan una superficie y una cantidad de cuartos mas grande. Las distribuciones del tipo PH y departamento presentan valores similares en cuanto a su varianza y sus valores maximos. 
+
 #### Realizar un correlagrama usando GGAlly
 
 ```{r echo=TRUE, warning=FALSE}
@@ -198,6 +237,9 @@ datagraph <- data_sinoutliers%>%
   select(-c("id","l3"))
 ggpairs(datagraph,  mapping = aes(color = property_type))
 ```
+
+Al analizar el grafico de correlacion entre las variables, se mantiene la relacion existente entre la variable precio y las variables asociadas a la superficie de la propiedad con una correlacion baja. En cuanto a la correlacion entre precio y las variables bathrooms y rooms presentan una correlacion mas alta con respecto a la medicion realizada antes de la eliminacion de los outliers.
+
 
 ## 7. Modelo lineal
 Realizar un modelo lineal simple para explicar el precio en función de las habitaciones (rooms) y otro modelo que explique el precio en función de la superficie total (surface_total)
@@ -210,9 +252,9 @@ summary(rl_model)
 ```
 
 El modelo seria el siguiente:
-Price = 34908,2 + 64575 * (Rooms)
+Price = 54401.6 + 50516.8 * (Rooms)
 
-Lo que nos da a entender es que en el caso de tener 0 habitaciones la propiedad lo cual no tiene mucho sentido este tendria un valor de 34908. En cuanto al valor de 64575 es el valor de la pendiente, por lo que por cada cambio de una habitacion el valor promedio de la propiedad estaria incrementando en 64575
+Lo que nos da a entender es que en el caso de tener 0 habitaciones la propiedad lo cual no tiene mucho sentido este tendria un valor de 54401.6. En cuanto al valor de 50516.8 es el valor de la pendiente, por lo que por cada cambio de una habitacion el valor promedio de la propiedad estaria incrementando en 50516.8
 
 
 ```{r echo=TRUE, warning=FALSE}
@@ -230,9 +272,9 @@ summary(rl_model)
 ```
 
 El modelo seria el siguiente:
-Price = 210100 + 9,182 * (Surface_total)
+Price = 187200 + 5.694 * (Surface_total)
 
-Lo que nos da a entender es que el valor base que tienen todas las propiedades serian de 210100, esto es por le valor del cruce por el eje, es decir cuando no tiene un area la propiedad. En cuanto al valor de 9,182 es el valor de la pendiente, por lo que por cada cambio de una unidad de medida de la superficie total el valor promedio de la propiedad estaria incrementando en 9,182
+Lo que nos da a entender es que el valor base que tienen todas las propiedades serian de 187200, esto es por le valor del cruce por el eje, es decir cuando no tiene un area la propiedad. En cuanto al valor de 5.694 es el valor de la pendiente, por lo que por cada cambio de una unidad de medida de la superficie total el valor promedio de la propiedad estaria incrementando en 5.694
 
 ```{r echo=TRUE, warning=FALSE}
 #Graficamos el modelo de regresion obtenido
