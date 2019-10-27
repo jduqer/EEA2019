@@ -1,0 +1,60 @@
+---
+title: "TP-02 Javier Duque"
+output: html_notebook
+---
+
+## Carga de los datos
+
+Comenzamos leyendo el dataframe y se muestra la estructura de las variables, el tipo de datos
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+#Se cargan las librerias a usar 
+library(readr)
+library(tidyverse)
+library(tidymodels)
+```
+
+```{r echo=TRUE, warning=FALSE}
+#Se lee el dataset y se procede a revisar la estructura de los datos
+ar_properties <- read_rds("~/Maestria DM/Enfoque estadistico del aprendizaje/EEA2019JD/EEA2019/TP-2/ar_properties.rds")
+glimpse(ar_properties)
+```
+
+## 1. Regresión lineal múltiple
+
+### a) Crear un modelo para predecir el precio con todas las covariables.
+```{r echo=TRUE, warning=FALSE}
+ar_properties <- ar_properties %>%
+  select(.,-c(id))
+
+#Se realiza una regresion multiple de precio con respecto a todas las covariables
+lmcompleto <- lm(price~., data = ar_properties)
+#ver el resultado del modelo
+tidy(lmcompleto)
+```
+
+
+### b) Analizar los resultados del modelo:
+
+1. Interpretación de los coeficientes estimados
+2. ¿Qué observan respecto de la significatividad de las variables dummy?
+3. Medidas de evaluación del modelo
+```{r echo=TRUE, warning=FALSE}
+#Se realiza una regresion multiple de precio con respecto a todas las covariables
+glance(lmcompleto)
+```
+
+### c) ¿Qué es preferible tener para vender?:
+1. Un departamento de 120 mts cuadrados cubiertos en abasto, con 3 dormitorios y 2 baños
+2. Un PH en balvanera, con 80 mts cuadrados cubiertos, 20 mts cuadrados no cubiertos, 2 dormitorios y 3 baños.
+
+
+### d) Realizar un modelo sin la covariable l3 e interpretar sus resultados 
+```{r echo=TRUE, warning=FALSE}
+#Se realiza una regresion multiple de precio con respecto a todas las covariables excepto l3
+lmsinl3 <- lm(price~property_type+rooms+bathrooms+surface_total+surface_covered, data = ar_properties)
+#ver el resultado del modelo
+tidy(lmsinl3)
+```
+
+### e) ¿Cuál es el modelo que mejor explica la variabilidad del precio?
