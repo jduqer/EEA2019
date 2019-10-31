@@ -12,11 +12,12 @@ Comenzamos leyendo el dataframe y se muestra la estructura de las variables, el 
 library(readr)
 library(tidyverse)
 library(tidymodels)
+library(dplyr)
 ```
 
 ```{r echo=TRUE, warning=FALSE}
 #Se lee el dataset y se procede a revisar la estructura de los datos
-ar_properties <- read_rds("~/Maestria DM/Enfoque estadistico del aprendizaje/EEA2019JD/EEA2019/TP-2/ar_properties.rds")
+ar_properties <- read_rds("~/GitHub/EEA2019/TP-2/ar_properties.rds")
 glimpse(ar_properties)
 ```
 
@@ -24,15 +25,34 @@ glimpse(ar_properties)
 
 ### a) Crear un modelo para predecir el precio con todas las covariables.
 ```{r echo=TRUE, warning=FALSE}
-ar_properties <- ar_properties %>%
+ar_propertieslm <- ar_properties %>%
   select(.,-c(id))
 
 #Se realiza una regresion multiple de precio con respecto a todas las covariables
-lmcompleto <- lm(price~., data = ar_properties)
+lmcompleto <- lm(price~., data = ar_propertieslm)
 #ver el resultado del modelo
 tidy(lmcompleto)
 ```
 
+```{r echo=TRUE, warning=FALSE}
+#Creamos las variables dummy para hacer la regresion multiple
+ar_propdummy <- ar_properties %>% 
+  mutate(l3 = paste("barrio", l3, sep = "_"),
+         valor_barrio = 1,
+         property_type = paste("tipo", property_type, sep = "_"),
+         valor_tipo = 1
+         ) 
+
+ar_propdummy <- ar_propdummy %>%
+  spread(key = property_type, value = valor_tipo, fill = 0) %>% 
+  spread(key = l3, value = valor_barrio, fill = 0) %>%
+  select(.,-c(id))
+
+#Se realiza una regresion multiple de precio con respecto a todas las covariables
+lmcompleto <- lm(price~., data = ar_propdummy)
+#ver el resultado del modelo
+tidy(lmcompleto)
+```
 
 ### b) Analizar los resultados del modelo:
 
@@ -52,7 +72,11 @@ glance(lmcompleto)
 ### d) Realizar un modelo sin la covariable l3 e interpretar sus resultados 
 ```{r echo=TRUE, warning=FALSE}
 #Se realiza una regresion multiple de precio con respecto a todas las covariables excepto l3
-lmsinl3 <- lm(price~property_type+rooms+bathrooms+surface_total+surface_covered, data = ar_properties)
+ar_propertiesfilter <- ar_properties %>%
+  select(.,-c(l3))
+
+
+lmsinl3 <- lm(price~., data = ar_propertiesfilter)
 #ver el resultado del modelo
 tidy(lmsinl3)
 ```
