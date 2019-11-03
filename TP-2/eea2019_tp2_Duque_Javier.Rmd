@@ -17,7 +17,7 @@ library(dplyr)
 
 ```{r echo=TRUE, warning=FALSE}
 #Se lee el dataset y se procede a revisar la estructura de los datos
-ar_properties <- read_rds("~/GitHub/EEA2019/TP-2/ar_properties.rds")
+ar_properties <- read_rds("~/Maestria DM/Enfoque estadistico del aprendizaje/EEA2019JD/EEA2019/TP-2/ar_properties.rds")
 glimpse(ar_properties)
 ```
 
@@ -25,60 +25,82 @@ glimpse(ar_properties)
 
 ### a) Crear un modelo para predecir el precio con todas las covariables.
 ```{r echo=TRUE, warning=FALSE}
+#SE filtra la variable ID 
 ar_propertieslm <- ar_properties %>%
   select(.,-c(id))
 
 #Se realiza una regresion multiple de precio con respecto a todas las covariables
 lmcompleto <- lm(price~., data = ar_propertieslm)
 #ver el resultado del modelo
-tidy(lmcompleto)
+summary(lmcompleto)
 ```
 
-```{r echo=TRUE, warning=FALSE}
-#Creamos las variables dummy para hacer la regresion multiple
-ar_propdummy <- ar_properties %>% 
-  mutate(l3 = paste("barrio", l3, sep = "_"),
-         valor_barrio = 1,
-         property_type = paste("tipo", property_type, sep = "_"),
-         valor_tipo = 1
-         ) 
 
-ar_propdummy <- ar_propdummy %>%
-  spread(key = property_type, value = valor_tipo, fill = 0) %>% 
-  spread(key = l3, value = valor_barrio, fill = 0) %>%
-  select(.,-c(id))
-
-#Se realiza una regresion multiple de precio con respecto a todas las covariables
-lmcompleto <- lm(price~., data = ar_propdummy)
-#ver el resultado del modelo
-tidy(lmcompleto)
-```
 
 ### b) Analizar los resultados del modelo:
 
 1. Interpretación de los coeficientes estimados
+Se puede ver que debido a que se tienen dos variables de tipo categoricas (propoerty_type y l3), el sistema elige como categorias basales property_type = Casa y l3 = Abasto.
+
+Vamos a analizar los coeficientes de las variables que no son dummys.
+Se puede observar que el coeficiente estimado para la variable rooms es -3961.27, esto indica que si una propiedad aumenta en una habitacion su valor disminuye en 3961.27 dolares, teniendo el resto de las variables constantes; los coeficientes estimados de las otras variables bathrooms, surface_total, surface_covered, son positivos lo que indica que si aumentan su valor en una unidad de medida estos aumentan; el coeficiente estimado para la variable bathrooms es de 34040.98 lo que quiere decir que si se aumenta un baño el valor de la propiedad aumenta en 34040.98 dolares, lo que muestra que es una variable que tiene un grado de importancia en cuanto al valor estimado del precio, si el resto de las variables se mantienen constantes.
+
+En cuanto a las variables categoricas, que se convierten en variables dummy se interpretan de la siguiente forma: se interpreta en cuanto al cambio de una propiedad con los mismos valores en cuanto a las otras variables , tendria ese valor de cambio si cambia la categoria, si es positivo tendria un aumento en el valor estimado de precio, si es negativo tendria una disminucion en el valor estimado del precio.
+
+
 2. ¿Qué observan respecto de la significatividad de las variables dummy?
+La significatividad de los barrios se analizan con respecto al barrio Abasto,  por ejemplo: Almagro, Agronomia no tienen significatividad lo que quiere decir que el precio promedio no tiene variacion significativa.  Lo que se puede observar es que hay igualmente muchas variables significativas lo que dice que el precio promedio estimado si tiene variacion.variables fijas, es menos fuerte que en el caso de Coghlan.
+
 3. Medidas de evaluación del modelo
 ```{r echo=TRUE, warning=FALSE}
-#Se realiza una regresion multiple de precio con respecto a todas las covariables
+#Se piden las medidas de evaluacion del modelo
 glance(lmcompleto)
 ```
+
+Se observa que el valor de R cuadrado ajustado da 0.776 lo que nos muestra que el modelo de regresion que se realizo con el conjunto de covariables logra explicar en un 77% el valor de la variable precio estimado.
+
 
 ### c) ¿Qué es preferible tener para vender?:
 1. Un departamento de 120 mts cuadrados cubiertos en abasto, con 3 dormitorios y 2 baños
 2. Un PH en balvanera, con 80 mts cuadrados cubiertos, 20 mts cuadrados no cubiertos, 2 dormitorios y 3 baños.
 
+```{r echo=TRUE, warning=FALSE}
+# Se crean las dos observaciones nuevas
+deptoabasto =  data.frame( property_type = "Departamento", 
+                           surface_covered = 120,  
+                           surface_total = 120, 
+                           l3 = "Abasto", 
+                           rooms = 3, 
+                           bathrooms = 2 )
+
+phbalva =  data.frame(  property_type = "PH",
+                        l3 = "Balvanera",
+                        surface_covered = 80,
+                        surface_total = 100, 
+                        rooms = 2, 
+                        bathrooms = 3 )
+
+#Se realiza la prediccion y se muestran los resultados
+predicciones <- as.data.frame(predict(lmcompleto, deptoabasto, interval = "predict"))
+predicciones %>% 
+  bind_rows(as.data.frame(predict(lmcompleto, phbalva, interval = "predict")))
+
+
+predicciones
+```
+
+Se evidencia que es preferible tener para vender "Un departamento de 120 mts cuadrados cubiertos en abasto, con 3 dormitorios y 2 baños" porque nos da un mayor valor en el precio el cuales de 324596.4 dolares
 
 ### d) Realizar un modelo sin la covariable l3 e interpretar sus resultados 
 ```{r echo=TRUE, warning=FALSE}
 #Se realiza una regresion multiple de precio con respecto a todas las covariables excepto l3
-ar_propertiesfilter <- ar_properties %>%
-  select(.,-c(l3))
+ar_propertiessinl3 <- ar_properties %>%
+  select(-c(l3))
 
 
-lmsinl3 <- lm(price~., data = ar_propertiesfilter)
+lmsinl3 <- lm(price ~ ., data = ar_propertiessinl3)
 #ver el resultado del modelo
-tidy(lmsinl3)
+summary(lmsinl3)
 ```
 
 ### e) ¿Cuál es el modelo que mejor explica la variabilidad del precio?
