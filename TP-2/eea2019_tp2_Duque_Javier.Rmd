@@ -18,7 +18,7 @@ library(OneR)
 
 ```{r echo=TRUE, warning=FALSE}
 #Se lee el dataset y se procede a revisar la estructura de los datos
-ar_properties <- read_rds("~/Maestria DM/Enfoque estadistico del aprendizaje/EEA2019JD/EEA2019/TP-2/ar_properties.rds")
+ar_properties <- read_rds("~/GitHub/EEA2019/TP-2/ar_properties.rds")
 glimpse(ar_properties)
 ```
 
@@ -46,14 +46,19 @@ Se puede ver que debido a que se tienen dos variables de tipo categoricas (propo
 
 Vamos a analizar los coeficientes de las variables que no son dummys.
 
-Se puede observar que el coeficiente estimado para la variable rooms es -3961.27, esto indica que si una propiedad aumenta en una habitacion su valor disminuye en 3961.27 dolares, teniendo el resto de las variables constantes; los coeficientes estimados de las otras variables bathrooms, surface_total, surface_covered, son positivos lo que indica que si aumentan su valor en una unidad de medida estos aumentan; el coeficiente estimado para la variable bathrooms es de 34040.98 lo que quiere decir que si se aumenta un baño el valor de la propiedad aumenta en 34040.98 dolares, lo que muestra que es una variable que tiene un grado de importancia en cuanto al valor estimado del precio, si el resto de las variables se mantienen constantes.
+Se puede observar que el coeficiente estimado para la variable rooms es -3961.27, esto indica que si una propiedad aumenta en una habitacion su valor de precio esperado disminuye en 3961.27 dolares, teniendo el resto de las variables constantes; los coeficientes estimados de las otras variables bathrooms, surface_total, surface_covered, son positivos lo que indica que si aumentan su valor en una unidad de medida su valor de precio estimado aumenta; el coeficiente estimado para la variable bathrooms es de 34040.98 lo que quiere decir que si se aumenta un baño el valor del precio esperado de la propiedad aumenta en 34040.98 dolares, lo que muestra que es una variable que tiene un grado de importancia en cuanto al valor estimado del precio, si el resto de las variables se mantienen constantes.
 
 En cuanto a las variables categoricas, que se convierten en variables dummy se interpretan de la siguiente forma: se interpreta en cuanto al cambio de una propiedad con los mismos valores en cuanto a las otras variables , tendria ese valor de cambio si cambia la categoria, si es positivo tendria un aumento en el valor estimado de precio, si es negativo tendria una disminucion en el valor estimado del precio.
 
 
 2. ¿Qué observan respecto de la significatividad de las variables dummy?
 
-La significatividad de los barrios se analizan con respecto al barrio Abasto,  por ejemplo: Almagro, Agronomia no tienen significatividad lo que quiere decir que el precio promedio no tiene variacion significativa.  Lo que se puede observar es que hay igualmente muchas variables significativas lo que dice que el precio promedio estimado si tiene variacion.variables fijas, es menos fuerte que en el caso de Coghlan.
+```{r echo=TRUE, warning=FALSE}
+#Se evalua anova en el modelo
+anova(lmcompleto)
+```
+
+Se puede observar que todas las variables en el modelo son estadisticamente significativas, en cuanto a la variable l3 que representan a los barrios se analizan con respecto al barrio Abasto,  por ejemplo: Almagro, Agronomia no tienen significatividad lo que quiere decir que el precio estimado no tiene variacion significativa.  Lo que se puede observar es que hay igualmente muchas variables significativas lo que dice que el precio  estimado si tiene variacion.variables fijas, es menos fuerte que en el caso de Coghlan.Para la otra variable categorica property_type se puede observar que cada una de sus variables dummy es significativa con respecto a la basal que seria en este modelo property_type = casa.
 
 3. Medidas de evaluación del modelo
 ```{r echo=TRUE, warning=FALSE}
@@ -104,7 +109,7 @@ lmsinl3 <- lm(price ~ ., data = ar_propertiessinl3)
 summary(lmsinl3)
 ```
 
-Se puede observar que el coeficiente estimado para la variable rooms es -13348.53, esto indica que si una propiedad aumenta en una habitacion su valor disminuye en 13348.53 dolares, teniendo el resto de las variables constantes; los coeficientes estimados de las otras variables bathrooms, surface_total, surface_covered, son positivos lo que indica que si aumentan su valor en una unidad de medida estos aumentan; En cuanto al coeficiente de la superficie cubierta si se aumenta en un m2 el precio estimado para una propiedad con el resto de las variables constantes aumentaria en 1783 dolares.
+Se puede observar que el coeficiente estimado para la variable rooms es -13348.53, esto indica que si una propiedad aumenta en una habitacion su valor de precio esperado disminuye en 13348.53 dolares, teniendo el resto de las variables constantes; los coeficientes estimados de las otras variables bathrooms, surface_total, surface_covered, son positivos lo que indica que si aumentan su valor en una unidad de medida su valor de precio esperado aumenta; En cuanto al coeficiente de la superficie cubierta si se aumenta en un m2 el precio estimado para una propiedad con el resto de las variables constantes aumentaria en 1783 dolares.
 
 
 ### e) ¿Cuál es el modelo que mejor explica la variabilidad del precio?
@@ -160,11 +165,11 @@ lmconestrato <- lm(price ~ ., data = propiedadesconestrato)
 summary(lmconestrato)
 ```
 
-En los datos para el modelo se decidio eliminar los barrios con los precios con mayor precio con respecto al resto, se eliminaron los outliers de la variable media de precio.
+En los datos para el modelo se decidio eliminar los barrios con los precios con mayor precio con respecto al resto en nuestro caso Puerto Madero, se eliminaron los outliers de la variable media de precio, debido a que en el momento de hacer la particion en las 3 categorias este valor de precio_m2 es muy elevado respecto al resto y haria que los tres cluster tuvieran una distribucion muy diferente.
 
 El modelo selecciono como categoria basal los barrios con precio bajo.
 
-Se puede observar que el coeficiente estimado para la variable rooms es -4729.13, y las otras variables es positivo lo que muestra que el modelo presenta el mismo comportamiento que el primer moderlo realizado, Se sigue observando que todas las variables son altamente siginicativas; en cuanto los coeficientes de barriomedio = 31001.38 se puede ver que es una variacion de una propiedad con todas las variables restantes iguales tendria un valor estimado aumentado en 31001 dolares, la diferencia con respecto al valor estimado de los barrioalto si es da una gran diferencia 95847 dolares
+Se puede observar que el coeficiente estimado para la variable rooms es -4729.13, y las otras variables es positivo lo que muestra que el modelo presenta el mismo comportamiento que el primer modelo realizado, Se sigue observando que todas las variables son altamente siginicativas; en cuanto los coeficientes de barriomedio = 31001.38 se puede ver que es una variacion de una propiedad con todas las variables restantes iguales tendria un valor de precio esperado aumentado en 31001 dolares, la diferencia con respecto al valor de precio esperado de los barrioalto si es da una gran diferencia 95847 dolares
 
 ### c) ¿Qué modelo explica mejor la variabilidad de los datos, el que utiliza la variable l3 o el que utiliza barrio? En su opinión, ¿Qué modelo es más útil? ¿Porqué?
 
@@ -228,7 +233,9 @@ ggplot(residuos, aes(sample= .std.resid))+
   geom_abline()  + ggtitle('Normal QQ plot')
 ```
 
-Del grafico de los residuos no se evidencia una estructura clara, lo que se puede observar es que los datos de los residuos si son muy cercano a 0, lo que muestra que no se evidencia un error alto del modelo
+Del grafico de los residuos vs modelo ajustado no se evidencia una estructura clara, lo que indica que la varianza de todos los residuos en variable, comienza con poca varianza y van aumentando, esto nos lleva a decir que el criterio de homocedasticidad no se cumple.
+
+En el grafico Normal QQ-plot,  se observa que los errores no se distribuyen de forma normal debido a que en los extremos los mismos se diferencian de sus cuantiles teoricos.
 
 
 ### b) Calcular el modelo
@@ -246,7 +253,9 @@ summary(lmlog)
 
 En cuanto a la variabilidad explicada de este nuevo modelo la cual se observa en el valor del R2 ajustado, nos da 82% lo que muestra que con este modelo podemos llegar a explicar mas que con los modelos implementados previamente. 
 
-De los coeficientes obtenidos en este modelo se puede ver que la variacion del precio estimado de una propiedad con todas la variables constantes, si el tipo de propiedad cambia de casa a PH esta tendria un aumento en un 6%, mientras que si se cambia esta misma por una propiedad tipo Departamento aumentaria en un 21%.
+De los coeficientes obtenidos en este modelo se puede ver que la variacion del precio estimado de una propiedad con todas la variables constantes, si el tipo de propiedad cambia de casa a PH esta tendria un aumento en un 6%, mientras que si se cambia esta misma por una propiedad tipo Departamento aumentaria en un 21%. 
+
+En cuanto a los coeficientes de las variables que se encuentran transformadas, el coeficiente para la variables log(surface_covered) es de 0.779 por lo que si se aumenta un 1% el valor de la superficie cubierta, el valor del precio esperado aumentaria en un 0.779%, como se observo en anteriores modelos aun con este en el cual las variables tienen una transformacion el coeficiente para la variable log(rooms) continua siendo negativo, lo que indica que si la variable de habitaciones aumenta un 1%, el valor del precio esperado disminuye en un 0.016%.
 
 ```{r echo=TRUE, warning=FALSE}
 ## obtengo los residuos del modelo y los grafico con respecto al modelo ajustado
