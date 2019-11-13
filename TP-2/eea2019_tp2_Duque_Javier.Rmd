@@ -96,7 +96,7 @@ Se evidencia que es preferible tener para vender "Un departamento de 120 mts cua
 ```{r echo=TRUE, warning=FALSE}
 #Se realiza una regresion multiple de precio con respecto a todas las covariables excepto l3
 ar_propertiessinl3 <- ar_properties %>%
-  select(-c(l3))
+  select(.,-c(l3,id))
 
 
 lmsinl3 <- lm(price ~ ., data = ar_propertiessinl3)
@@ -104,8 +104,18 @@ lmsinl3 <- lm(price ~ ., data = ar_propertiessinl3)
 summary(lmsinl3)
 ```
 
-### e) ¿Cuál es el modelo que mejor explica la variabilidad del precio?
+Se puede observar que el coeficiente estimado para la variable rooms es -13348.53, esto indica que si una propiedad aumenta en una habitacion su valor disminuye en 13348.53 dolares, teniendo el resto de las variables constantes; los coeficientes estimados de las otras variables bathrooms, surface_total, surface_covered, son positivos lo que indica que si aumentan su valor en una unidad de medida estos aumentan; En cuanto al coeficiente de la superficie cubierta si se aumenta en un m2 el precio estimado para una propiedad con el resto de las variables constantes aumentaria en 1783 dolares.
 
+
+### e) ¿Cuál es el modelo que mejor explica la variabilidad del precio?
+```{r echo=TRUE, warning=FALSE}
+#Mostrar los resultados de los modelos completo y con barrio por estrato
+resutadoslm <- as.data.frame(glance(lmcompleto))
+resutadoslm %>% 
+  bind_rows(as.data.frame(glance(lmsinl3)))
+```
+
+Se puede ver de acuerdo al valor del R cuadrado ajustado que el modelo que logra explicar mejor es el que tiene los barrios (l3), puede ser porque tiene mas variables lo que hace que logre explicar mejor. El R cuadrado ajustado para el modelo completo es 0.77 (77%) y para el modelo sin l3 es 0.68 (68%)
 
 ## 2. Creación de variables:
 
