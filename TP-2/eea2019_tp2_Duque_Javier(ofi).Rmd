@@ -1,0 +1,308 @@
+---
+title: "TP-02 Javier Duque"
+output: html_notebook
+---
+
+## Carga de los datos
+
+Comenzamos leyendo el dataframe y se muestra la estructura de las variables, el tipo de datos
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+#Se cargan las librerias a usar 
+library(readr)
+library(tidyverse)
+library(tidymodels)
+library(dplyr)
+library(OneR)
+```
+
+```{r echo=TRUE, warning=FALSE}
+#Se lee el dataset y se procede a revisar la estructura de los datos
+ar_properties <- read_rds("~/GitHub/EEA2019/TP-2/ar_properties.rds")
+glimpse(ar_properties)
+```
+
+## 1. Regresión lineal múltiple
+
+### a) Crear un modelo para predecir el precio con todas las covariables.
+```{r echo=TRUE, warning=FALSE}
+#SE filtra la variable ID 
+ar_propertieslm <- ar_properties %>%
+  select(.,-c(id))
+
+#Se realiza una regresion multiple de precio con respecto a todas las covariables
+lmcompleto <- lm(price~., data = ar_propertieslm)
+#ver el resultado del modelo
+summary(lmcompleto)
+```
+
+
+
+### b) Analizar los resultados del modelo:
+
+1. Interpretación de los coeficientes estimados
+
+Se puede ver que debido a que se tienen dos variables de tipo categoricas (propoerty_type y l3), el sistema elige como categorias basales property_type = Casa y l3 = Abasto.
+
+Vamos a analizar los coeficientes de las variables que no son dummys.
+
+Se puede observar que el coeficiente estimado para la variable rooms es -3961.27, esto indica que si una propiedad aumenta en una habitacion su valor esperado disminuye en 3961.27 dolares, teniendo el resto de las variables constantes; los coeficientes estimados de las otras variables bathrooms, surface_total, surface_covered, son positivos lo que indica que si aumentan su valor en una unidad de medida estos aumentan; el coeficiente estimado para la variable bathrooms es de 34040.98 lo que quiere decir que si se aumenta un baño el valor esperado de la propiedad aumenta en 34040.98 dolares, lo que muestra que es una variable que tiene un grado de importancia en cuanto al valor estimado del precio, si el resto de las variables se mantienen constantes.
+
+En cuanto a las variables categoricas, que se convierten en variables dummy se interpretan de la siguiente forma: se interpreta en cuanto al cambio de una propiedad con los mismos valores en cuanto a las otras variables , tendria ese valor de cambio si cambia la categoria, si es positivo tendria un aumento en el valor estimado de precio, si es negativo tendria una disminucion en el valor estimado del precio.
+
+
+2. ¿Qué observan respecto de la significatividad de las variables dummy?
+
+```{r echo=TRUE, warning=FALSE}
+#Se evalua anova en el modelo
+anova(lmcompleto)
+```
+
+Se puede observar que todas las variables en el modelo son estadisticamente significativas, en cuanto a la variable l3 que representan a los barrios se analizan con respecto al barrio Abasto,  por ejemplo: Almagro, Agronomia no tienen significatividad lo que quiere decir que el precio estimado no tiene variacion significativa.  Lo que se puede observar es que hay igualmente muchas variables significativas lo que dice que el precio  estimado si tiene variacion.variables fijas, es menos fuerte que en el caso de Coghlan.Para la otra variable categorica property_type se puede observar que cada una de sus variables dummy es significativa con respecto a la basal que seria en este modelo property_type = casa.
+
+3. Medidas de evaluación del modelo
+```{r echo=TRUE, warning=FALSE}
+#Se piden las medidas de evaluacion del modelo
+glance(lmcompleto)
+```
+
+Se observa que el valor de R cuadrado ajustado da 0.776 lo que nos muestra que el modelo de regresion que se realizo con el conjunto de covariables logra explicar en un 77% el valor de la variable precio estimado.
+
+
+### c) ¿Qué es preferible tener para vender?:
+1. Un departamento de 120 mts cuadrados cubiertos en abasto, con 3 dormitorios y 2 baños
+2. Un PH en balvanera, con 80 mts cuadrados cubiertos, 20 mts cuadrados no cubiertos, 2 dormitorios y 3 baños.
+
+```{r echo=TRUE, warning=FALSE}
+# Se crean las dos observaciones nuevas
+deptoabasto =  data.frame( property_type = "Departamento", 
+                           surface_covered = 120,  
+                           surface_total = 120, 
+                           l3 = "Abasto", 
+                           rooms = 3, 
+                           bathrooms = 2 )
+
+phbalva =  data.frame(  property_type = "PH",
+                        l3 = "Balvanera",
+                        surface_covered = 80,
+                        surface_total = 100, 
+                        rooms = 2, 
+                        bathrooms = 3 )
+
+#Se realiza la prediccion y se muestran los resultados
+predicciones <- as.data.frame(predict(lmcompleto, deptoabasto, interval = "predict"))
+predicciones %>% 
+  bind_rows(as.data.frame(predict(lmcompleto, phbalva, interval = "predict")))
+```
+
+Se evidencia que es preferible tener para vender "Un departamento de 120 mts cuadrados cubiertos en abasto, con 3 dormitorios y 2 baños" porque nos da un mayor valor en el precio el cuales de 324596.4 dolares
+
+### d) Realizar un modelo sin la covariable l3 e interpretar sus resultados 
+```{r echo=TRUE, warning=FALSE}
+#Se realiza una regresion multiple de precio con respecto a todas las covariables excepto l3
+ar_propertiessinl3 <- ar_properties %>%
+  select(-c(l3))
+
+
+lmsinl3 <- lm(price ~ ., data = ar_propertiessinl3)
+#ver el resultado del modelo
+summary(lmsinl3)
+```
+
+### e) ¿Cuál es el modelo que mejor explica la variabilidad del precio?
+
+
+## 2. Creación de variables:
+
+### a) Crear variable precio por metro cuadrado 
+En el ejercicio anterior encontramos que algunos barrios son significativos, aunque no todos. Crear una nueva variable barrios que divida a los barrios según el precio por metro cuadrado promedio de las propiedades en ellos, con los grupos c(‘alto’, ‘medio’, ‘bajo’). Realizar un análisis exploratorio para definir los puntos de corte de la nueva variable y explicar los criterios utilizados en la construcción de la misma.
+
+```{r echo=TRUE, warning=FALSE}
+# Crear una variable de precio por metro cuadrado
+precio_medio_barrio <- ar_properties %>%
+  group_by(l3) %>% 
+  summarise(mediaprecio= mean(price/surface_total)) %>%
+  arrange(desc(mediaprecio))
+
+precio_medio_barrio
+```
+
+
+```{r echo=TRUE, warning=FALSE}
+#Se crean tres niveles de acuerdo a la variable de precio por metro cuadrado
+precio_medio_barrio <- precio_medio_barrio %>% 
+  filter(mediaprecio != min(mediaprecio),mediaprecio != max(mediaprecio)) %>% 
+  mutate(barrios = bin(mediaprecio, nbins = 3, labels = c("bajo", "medio", "alto"))) 
+
+precio_medio_barrio
+```
+
+### b) Calcular el modelo 
+Calcular el modelo que predice el precio en función de las nuevas covariables e interpretar sus resultados (todas las partes de la salida que consideren relevantes)
+```{r echo=TRUE, warning=FALSE}
+#Se agrega la nueva variable categorica creada
+propiedadesconestrato <- ar_properties %>%
+  inner_join(precio_medio_barrio, by = c("l3")) %>%
+  select(-c(l3, mediaprecio, id))
+
+head(propiedadesconestrato)
+```
+
+```{r echo=TRUE, warning=FALSE}
+#Realizo modelo de regresion multiple al nuevo dataset
+lmconestrato <- lm(price ~ ., data = propiedadesconestrato)
+#ver el resultado del modelo
+summary(lmconestrato)
+```
+
+En los datos para el modelo se decidio eliminar los barrios con los precios con mayor precio con respecto al resto, se eliminaron los outliers de la variable media de precio.
+
+El modelo selecciono como categoria basal los barrios con precio bajo.
+
+Se puede observar que el coeficiente estimado para la variable rooms es -4729.13, y las otras variables es positivo lo que muestra que el modelo presenta el mismo comportamiento que el primer moderlo realizado, Se sigue observando que todas las variables son altamente siginicativas; en cuanto los coeficientes de barriomedio = 31001.38 se puede ver que es una variacion de una propiedad con todas las variables restantes iguales tendria un valor estimado aumentado en 31001 dolares, la diferencia con respecto al valor estimado de los barrioalto si es da una gran diferencia 95847 dolares
+
+### c) ¿Qué modelo explica mejor la variabilidad de los datos, el que utiliza la variable l3 o el que utiliza barrio? En su opinión, ¿Qué modelo es más útil? ¿Porqué?
+
+```{r echo=TRUE, warning=FALSE}
+#Mostrar los resultados de los modelos completo y con barrio por estrato
+resutadoslm <- as.data.frame(glance(lmcompleto))
+resutadoslm %>% 
+  bind_rows(as.data.frame(glance(lmconestrato)))
+```
+
+Al analizar el valor del R cuadrado ajustado se evidencia que es mejor el modelo que esta utilizando la variable l3 como factor, la diferencia igual no es muy elevada por lo que se puede elegir alguno de los dos modelos de acuerdo a lo que se desea modelar; puesto que el modelo que usa los barrios es mas simple y mas facil de entender pero no se podria ser muy especifico a la hora de saber algun detalle del precio estimado por un barrio especifico.
+
+### d) Construir variable surface_patio
+La interpretación de los coeficientes de las variables surface_covered y surface_total puede ser un poco problemática ya que se encuentran correlacionadas. Entonces, podemos construir una nueva variable surface_patio para la diferencia entre ambas superficies:
+
+#### i. Construir una nueva variable surface_patio. Dado que algunos registros pueden contener la contradicción de que surface_total<surface_covered, explicitar cómo se procede para dichos casos.
+
+```{r echo=TRUE, warning=FALSE}
+#Crear una variable superficie patio que seria la resta entre la superficie total y la cubierta
+ar_propertiespatio <- propiedadesconestrato %>% 
+  mutate(surface_patio = surface_total-surface_covered)
+
+summary(ar_propertiespatio$surface_patio)
+```
+
+En esta nueva variable no se presentan datos erroneos, en los cuales la superficie cubierta sea mayor que la superficie total, por lo que no se debe hacer nada adicional
+
+#### ii. Calcular nuevamente el modelo lineal para todas las covariables previas (excepto surface_total), surface_covered y surface_patio e interpretar los coeficientes de estas dos últimas variables
+
+```{r echo=TRUE, warning=FALSE}
+#elimino superficie total del dataset
+ar_propertiespatio <- ar_propertiespatio %>%
+  select(-surface_total)
+
+#Realizo modelo de regresion multiple al nuevo dataset
+lmpatio <- lm(price ~ ., data = ar_propertiespatio)
+#ver el resultado del modelo
+summary(lmpatio)
+```
+
+Como se viene evidenciando en los modelos anteriores el coeficiente de la variable rooms continua negativo, en cuanto a las nuevas variables creadas se puede decir que sila superficie cubierta aumenta en un m2 el valor estimado del precio aumentaria en 2372.52 dolares si el resto de las variables se mantienen constantes; en cuanto a la variable superficie de patio si aumenta en un m2 el valor estimado del precio aumentaria en 956.03 dolares
+
+## 3. Evaluación del modelo:
+
+### a) Analizar los residuos del modelo elaborado en 2.d
+```{r echo=TRUE, warning=FALSE}
+## obtengo los residuos del modelo y los grafico con respecto al modelo ajustado
+residuos <- augment(lmpatio,ar_propertiespatio)
+
+ggplot(residuos, aes(.fitted, .resid)) +
+  geom_point()+
+  geom_hline(yintercept = 0) +
+  geom_smooth(se = FALSE) +
+  ggtitle("Residuos VS Modelo ajustado")
+```
+
+```{r echo=TRUE, warning=FALSE}
+#Grafico Q-Q de los residuos
+ggplot(residuos, aes(sample= .std.resid))+
+  stat_qq()+
+  geom_abline()  + ggtitle('Normal QQ plot')
+```
+
+Del grafico de los residuos no se evidencia una estructura clara, lo que se puede observar es que los datos de los residuos si son muy cercano a 0, lo que muestra que no se evidencia un error alto del modelo
+
+
+### b) Calcular el modelo
+Calcular el modelo
+log(price)=β0+β1log(rooms)+β2log(bathrooms)+β3log(surface_covered)+β4property_type+β5barrio+β6surface_patio
+
+```{r echo=TRUE, warning=FALSE}
+#Calcular el modelo logaritmico
+lmlog = lm(log(price) ~ log(rooms) + log(bathrooms) + log(surface_covered) + property_type + barrios + surface_patio, ar_propertiespatio)
+
+summary(lmlog)
+```
+
+- Comparar la performance del modelo de 2.d con éste, tanto en términos de la variabilidad explicada cómo de su relación con los supuestos del modelo lineal. Re-interpretar los parámetros del modelo.
+
+En cuanto a la variabilidad explicada de este nuevo modelo la cual se observa en el valor del R2 ajustado, nos da 82% lo que muestra que con este modelo podemos llegar a explicar mas que con los modelos implementados previamente. 
+
+De los coeficientes obtenidos en este modelo se puede ver que la variacion del precio estimado de una propiedad con todas la variables constantes, si el tipo de propiedad cambia de casa a PH esta tendria un aumento en un 6%, mientras que si se cambia esta misma por una propiedad tipo Departamento aumentaria en un 21%.
+
+```{r echo=TRUE, warning=FALSE}
+## obtengo los residuos del modelo y los grafico con respecto al modelo ajustado
+residuoslog <- augment(lmlog,ar_propertiespatio)
+
+ggplot(residuoslog, aes(.fitted, .resid)) +
+  geom_point()+
+  geom_hline(yintercept = 0) +
+  geom_smooth(se = FALSE) +
+  ggtitle("Residuos VS Modelo ajustado")
+```
+
+```{r echo=TRUE, warning=FALSE}
+#Grafico Q-Q de los residuos
+ggplot(residuoslog, aes(sample= .std.resid))+
+  stat_qq()+
+  geom_abline()  + ggtitle('Normal QQ plot')
+```
+
+En cuanto a la distribucion de los residuos con respecto al modelo anterior estan mas concentrados en torno al cero lo que muestra que tienen menos dispersion, por lo que muestra que el modelo esta cerca a cumplir los supuestos del modelo lineal. En el grafico de QQ Plot las observaciones estan mas cerca de la recta, lo que quiere decir que la distribucion de los residuos estan mas cerca a una distribucion normal.
+
+## 4. Dataframes anidados
+
+### a) Anidar por la variable property_type
+```{r echo=TRUE, warning=FALSE}
+#Agrupar por tipo de propiedad
+ar_porpropiedad <- ar_propertiespatio %>%
+  group_by(property_type) %>%
+  nest()
+
+ar_porpropiedad
+```
+
+### b) Construir para cada tipo de propiedad el modelo de 2.d e interpretar los resultados en cada caso. Qué diferencias encuentran entre los distintos modelos?
+
+```{r echo=TRUE, warning=FALSE}
+# Crear una funcion para el modelo por cada tipo
+regresion_lineal <- function(df){
+  return (lm(price ~ . ,data = df))
+}
+
+#Ejecutar la funcion por cada tipo 
+modelosportipo = ar_porpropiedad %>%
+  mutate(lmtipo = map(data, regresion_lineal))%>%
+  mutate(tdy = map(lmtipo,tidy), gla = map(lmtipo, glance))
+
+#Mostras las valores de evaluacion del parametro
+modelosportipo%>% 
+  unnest(gla, .drop=TRUE)
+```
+
+Se observa que el mejor modelo de acuerdo al valor del R cuadrado ajustado seria el de tipo de propiedad Departamento, seguido de PH y por ultimo Casa, con respecto a los modelos realizados previamente, el unico que tendria un valor similar a estos seria el del tipo Departamento, por lo que podria decirse que es la variable que esta teniendo mas peso en los modelos generales.
+
+```{r echo=TRUE, warning=FALSE}
+#mostrar los valores de los coeficientes de cada modelo
+modelosportipo %>% 
+  unnest(tdy, .drop=TRUE) %>%
+  filter(term != '(Intercept)')
+```
+
+En cuanto a los coeficientes, la variable Room solo da un valor negativo para los tipo Departamento, lo que influye en el modelo general; esto se puede dar debido a que es mejor en una propiedad de este tipo tener menos habitaciones; En cuanto al coeficiente de cambio de acuerdo del tipo de barrio con respecto a la categoria de barrios de nivel bajo, las casas tienen un mayor aumento en el valor estimado del precio.
+En general se presentan unos coeficientes muy similares entre los tipos de propiedad.
+
+
