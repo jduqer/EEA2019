@@ -1,0 +1,305 @@
+---
+title: "TP-03 Javier Duque"
+output: 
+  html_notebook: 
+    toc: yes
+    toc_float: yes
+---
+
+## 1.Preparación de los datos
+
+### a) Leer el archivo titanic_complete_train.csv y mostrar su estructura
+Comenzamos leyendo el dataframe y se muestra la estructura de las variables, el tipo de datos
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+#Se cargan las librerias a usar 
+library(readr)
+library(tidyverse)
+library(broom)
+library(GGally)
+library(modelr)
+library(pROC)
+library(cowplot)
+library(OneR)
+library(rlang)
+library(caret)
+```
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+#Se lee el dataset y se procede a revisar la estructura de los datos
+titanic_complete_train <- read_csv("C:/Users/Jad/Documents/Maestria DM/Enfoque estadistico del aprendizaje/EEA2019JD/EEA2019/TP-3/titanic_complete_train.csv")
+glimpse(titanic_complete_train)
+```
+
+### b) Seleccionar las variables PassengerId, Survived, Pclass, Sex, Age, SibSp,Parch, Fare y Embarked
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+#Se realiza la seleccion de variables que se desan
+titanic_data_train <- titanic_complete_train %>%
+  select(.,c("PassengerId", "Survived", "Pclass", "Sex", "Age", "SibSp","Parch", "Fare", "Embarked"))
+```
+
+### c) Transformar las variables Survived, Pclass y Embarked a factor
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+#Las variables Survived, Pclass, Embarked se convierten a factor
+titanic_data_train$Survived <- as.factor(titanic_data_train$Survived)
+titanic_data_train$Pclass <- as.factor(titanic_data_train$Pclass)
+titanic_data_train$Embarked <- as.factor(titanic_data_train$Embarked)
+```
+
+### d) Realizar un gráfico de ggpairs para las variables Survived, Pclass, Sex, Age y Fare e interpretarlo
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# Realizar grafico ggpairs para las variables Survived, Pclass, Sex, Age y Fare
+titanic_data_graph <- titanic_data_train%>%
+  select(c("Survived","Pclass","Sex", "Age", "Fare"))
+ggpairs(titanic_data_graph,  mapping = aes(color = Survived))+ 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  theme_grey()+
+  theme(legend.position = "bottom")
+```
+
+Se puede observar que hay una correlacion muy baja entre las variables Age y Fare, analizando el grafico se puede ver que la variable Pclass, Sexo pueden ser buenas para predecir, la Pclass corresponde a la clase en la que viajaba el pasajero.
+
+### e) Mostrar la distribución de clase (Sobrevivientes vs No Sobrevivientes)
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+#Ver la distribucion de las clases de la variable survived
+titanic_data_train %>% 
+  group_by(Survived) %>% 
+  summarise(numero_casos=n())
+```
+
+Se observa que la clase que se quiere predecir se encuentra balanceada.
+
+### f) Dividir al dataset en conjunto de entrenamiento (70% de los datos) y validación (30% de los datos). Volver a analizar la distribución de clase para chequear que este balanceado
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+#Dividir el dataset en entrenamiento 70% y test 30%
+titanic_train_test <- titanic_data_train %>% resample_partition(c(train=0.7,test=0.3))
+
+train_data <- titanic_train_test$train %>% as_tibble()
+test_data <- titanic_train_test$test %>% as_tibble()
+```  
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+#Ver distribucion de las clases en survived 
+train_data %>% 
+  group_by(Survived) %>% 
+  summarise(numero_casos=n())
+```
+
+Al realizar la division del dataset se observa que la clase aun continua estando balanceada
+
+## 2. Predicciones (Trabajar con dataset de ENTRENAMIENTO)
+
+### a) Realizar un modelo de regresión logística para predecir la supervivencia en función de Pclass, Sex y Age. Usar solo el dataset de entrenamiento
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+#Se realiza una regresion logistica en funcion de Pclass, Sex y Age con el dataset de entrenamiento
+modelo1 <- glm(Survived ~ Pclass + Sex + Age, family = "binomial", data = train_data )
+summary(modelo1)
+```
+
+### b) Dar una breve interpretación de los coeficientes y su significatividad
+
+El modelo eligio como categorias basales en la variable Sex = Female y Pclass = Clase 1, se puede ver que si hay un cambio de la variable Pclass la cual indica la clase a la que pertenece el pasajero su probabilidad de sobrevivir disminuiria, lo mismo sucede si el pasajero es de sexo masculino tambien se presenta una disminucin de su propabilidad de sobrevivir disminuye tambien. 
+Para el coeficiente de la variable Age = `r modelo1$coefficients[5]` lo que indica es que si aumenta un año la edad del pasajero su probabilidad de sobrevivir disminuye.
+
+En cuanto a la signifcatividad se puede observar que todas las variables son significativas para el modelo
+
+### c) ¿Quién tiene una mayor probabilidad de supervivencia? Rose que es una mujer de 17 años que viaja en primera clase o Jack que es un hombre de 20 años viajando en tercera clase
+```{r echo=TRUE, warning=FALSE}
+# Se crean las dos observaciones nuevas
+Rose =  data.frame( Sex = "female", 
+                    Age = 17,
+                    Pclass = factor(1)
+                    )
+
+Jack =  data.frame( Sex = "male", 
+                    Age = 20,
+                    Pclass = factor(3)
+                    )
+#Se realiza la prediccion y se muestran los resultados
+predicciones <- predict(modelo1, Rose, type = "response")
+predicciones %>% 
+  bind_rows(predict(modelo1, Jack, type = "response"))
+```
+
+La mayor probabilidad para sobrevivir la tendria Rose con una probabilidad de `r predicciones[1]` 
+
+## 3) Generación de modelos (Trabajar con dataset de ENTRENAMIENTO)
+
+### a) Generar 3 modelos de regresión logística sobre el dataset de entrenamiento utilizando diferentes combinaciones de variables. Al menos dos modelos deben ser multivariados
+```{r echo=TRUE, warning=FALSE}
+#Crear la funcion para luego aplicar los modelos
+logit_formulas <- formulas(.response = ~Survived, 
+                         sex= ~Sex, 
+                         class_sex_fare= ~Pclass+Sex+Fare,  
+                         full= ~Pclass+Sex+Age+Fare,
+                         )
+#armar el dataframe con los modelos
+modelos2 <- data_frame(logit_formulas) %>% 
+  mutate(modelos = names(logit_formulas), 
+         expression = paste(logit_formulas), 
+         mod2 = map(logit_formulas, ~glm(.,family = 'binomial', data = train_data))) 
+
+modelos2 %>% 
+  mutate(tidy = map(mod2,tidy)) %>%  
+  unnest(tidy, .drop = TRUE) %>% 
+  mutate(estimate=round(estimate,5),
+         p.value=round(p.value,4))
+```
+
+### b) Ordenar por la deviance los 3 modelos creados en el punto 3)a) y el creado en el punto 2)a) y seleccionar el mejor modelo en términos de la deviance explicada
+```{r echo=TRUE, warning=FALSE}
+# Calcular las medidas de evaluación para cada modelo
+# Obtengo las medidas de evaluacion para el modelo de 2a)
+modelos1 <- bind_cols(expression = "Survived ~ Pclass + Sex + Age")
+modeloadd <- as.data.frame(glance(modelo1))
+modelos1 <- modelos1 %>%
+  bind_cols(modeloadd)
+
+modelos1 <- modelos1 %>%  
+  # Calculo de la deviance explicada
+  mutate(perc_explained_dev = 1-deviance/null.deviance) %>% 
+  select(-c(df.null, AIC, BIC))
+
+#obtengo las medidas de evaluacion para el modelo 3a)
+modelos2 <- modelos2 %>% 
+  mutate(glance = map(mod2,glance))
+
+# Obtener las medidas de evaluacion de interes
+modelos2 %>% 
+  unnest(glance, .drop = TRUE) %>%
+  # Calculo de la deviance explicada
+  mutate(perc_explained_dev = 1-deviance/null.deviance) %>% 
+  select(-c(modelos, df.null, AIC, BIC)) %>% 
+  bind_rows(modelos1) %>%
+  arrange(deviance)
+```
+
+Se elije el modelo con las variables Pclass, Sex, Age aunque no es el que tiene mayor deviance, se diferencia muy poco del modelo con todas las variables, y al analizar la significatvidad de la variable Fare en los modelos esta presenta un p_valor muy alto lo cual no la hace significativa.
+
+## 4)Evaluación del modelo (Trabajar con dataset de ENTRENAMIENTO)
+
+### a) Realizar el gráfico de curva ROC y obtener el AUC para el modelo elegido. Interpretar el gráfico
+```{r echo=TRUE, warning=FALSE}
+#Crear la funcion para luego aplicar los modelos
+logit_formulas2 <- formulas(.response = ~Survived, 
+                         elect= ~Pclass+Sex+Age,  
+                         )
+#armar el dataframe con los modelos
+modeloelegido <- data_frame(logit_formulas2) %>% 
+  mutate(modeloelegido = names(logit_formulas2), 
+         expression = paste(logit_formulas2), 
+         mod = map(logit_formulas2, ~glm(.,family = 'binomial', data = train_data))) 
+# Añadir las predicciones
+modeloelegido <- modeloelegido %>% 
+  mutate(pred= map(mod,augment, type.predict = "response"))
+
+prediction <- modeloelegido %>% 
+  filter(modeloelegido=="elect") %>% 
+  unnest(pred, .drop=TRUE)
+
+#Realizar la grafica ROC del modelo
+roc <- roc(response=prediction$Survived, predictor=prediction$.fitted)
+ggroc(data = roc, size=1) + geom_abline(slope = 1, intercept = 1, linetype='dashed') + theme_bw() + labs(title='Curva ROC')
+```
+
+Los ejes de la curva muestran el trade-off presente entre dos métricas como lo son la sensitividad, es decir la proporción del total de positivos (sobrevivientes) que el algoritmo clasificó correctamente como tales, y la especificidad, que es, por el contrario, la proporción del total de negativos (no sobrevivientes) que nuestra regresión clasificó correctamente como tales, a medida que se va variando el punto de corte. Esto es, como se ve en la gráfica, conforme nos movemos por la curva, para ganar en sensitividad (clasificar más positivos correctamente, los TP) necesariamente debemos ir reduciendo nuestra especificidad (clasificar más positivos incorrectamente, los FP).
+
+Esto implica que un modelo que tenga buena capacidad de discriminar las clases, como es el nuestro, tendrá alta sensitividad y especificidad al mismo tiempo, que gráficamente se traduce en una curva que se acerca al extremo superior izquierdo, punto ideal en que podríamos obtener una clasificación perfecta (sin errores), y lejos de la curva del azar. Una forma sucinta de representar esta capacidad para discriminar correctamente es la AUC, area bajo la curva, que en términos téoricos denota la probabilidad de que, tomados un caso positivo y uno negativo al azar, el score que el modelo asigna al primero sea superior al que asigna al segundo. En nuestro caso el score es de 0.855, sensiblemente mejor que el azar (0.5).
+
+### b) Realizar un violin plot e interpretar
+```{r echo=TRUE, warning=FALSE}
+#Realizar una grafica violin del modelo elegido
+violinelect=ggplot(prediction, aes(x=Survived, y=.fitted, group=Survived,fill=factor(Survived))) + 
+  geom_violin() +
+  theme_bw() +
+  guides(fill=FALSE) +
+  labs(title='Violin plot', subtitle='Modelo', y='Predicted probability')
+
+plot_grid(violinelect)
+```
+
+Este contrasta en forma clara y elegante la clase real a la que pertenece cada individuo y la probabilidad predicha por nuestro modelo de regresión logística. Queda reforzada aquí lo dicho sobre la bondad de nuestro modelo ya que se observa que las probabilidades arrojadas para valores pertenecientes a la clase de No Supervivencia (aquí 0) tienen una concentración grande cerca del 0, afinandose a medida que crece la probabilidad, mientras que las probabilidades arrojadas por el modelo para aquellos valores originales pertenecientes a la clase de Supervivencia (aquí 1) se concentran más arriba, cercanas al 1, y se hace cada vez menos poblada conforme se baja en el eje de y de probabilidades.
+
+Asimismo, la superposición de ciertas zonas, esto es, la inexistencia de una punto (o franja) de probabilidad que separe ambas clases reales, lo cual queda más claro aun cuando se observan los puntos superpuestos, da cuenta que la clasificación perfecta será imposible (reflejando una AUC menor a 1), y que de lo que se trata es de encontrar un punto de corte que logré maximizar una o varias métricas de performance, en función del problema de que se trate, tal como veremos en el próximo punto.
+
+## 5) Elección del punto corte (Trabajar con dataset de VALIDACION)
+
+### a) Sobre el dataset de validación realizar un gráfico de Accuracy, Specificity, Recall y Precision en función del punto de corte
+```{r echo=TRUE, warning=FALSE}
+# Añadimos predicciones pero esta vez del dataset de validación
+modelo_val <- modeloelegido %>%
+ mutate(pred = map(mod, augment, newdata = test_data, type.predict = "response"))
+
+# Obtenemos las correspondientes a nuestro mejor modelo
+prediction_validation <- modelo_val %>%
+  unnest(pred, .drop = TRUE)
+```
+
+```{r echo=TRUE, warning=FALSE}
+prediction_metrics <- function(cutoff, predictions=prediction_validation){
+  table <- predictions %>% 
+    mutate(predicted_class=if_else(.fitted>cutoff, 1, 0) %>% as.factor(),
+           Survived= factor(Survived))
+  
+  confusionMatrix(table$predicted_class, table$Survived, positive = "1") %>%
+    tidy() %>%
+    select(term, estimate) %>%
+    filter(term %in% c('accuracy', 'sensitivity', 'specificity', 'precision','recall')) %>%
+    mutate(cutoff=cutoff)
+  
+}
+
+cutoffs = seq(0.01,0.95,0.01)
+logit_pred= map_dfr(cutoffs, prediction_metrics)%>% mutate(term=as.factor(term))
+
+ggplot(logit_pred, aes(cutoff,estimate, group=term, color=term)) + geom_line(size=1) +
+  theme_bw() +
+  labs(title= 'Accuracy, Sensitivity, Specificity, Recall y Precision', subtitle= 'Modelo completo', color="")
+```
+
+¿Cuál es el punto de corte óptimo? Como se dijo, esto dependerá de qué métricas queramos maximizar. Sin considerar costos de los diferentes errores, parece natural elegir como punto de corte óptimo el punto en el que la sensitividad se iguala con la especificidad, obteniendose un balance entre la clasificación correcta de positivos y negativos, lo cual coincide aproximadamente en la gráfica con el punto de máxima accuracy. Este punto, como se muestra en la tabla de abajo, está aproximadamente en 0.45 y representa, en nuestro violin plot, la altura en la que la mayor cantidad de puntos quedan clasificados correctamente.
+
+### c) Obtener la matriz de confusión con el modelo y punto de corte elegidos. Interpretarla
+```{r echo=TRUE, warning=FALSE}
+sel_cutoff = 0.41
+elect_model <- glm(logit_formulas2$elect, family = 'binomial', data = test_data)
+table <- augment(x=elect_model, newdata=test_data, type.predict='response') 
+table <- table %>% mutate(predicted_class=if_else(.fitted>sel_cutoff, 1, 0) %>% as.factor(),
+           Survived= factor(Survived))
+confusionMatrix(table(table$Survived, table$predicted_class), positive = "1")
+```
+
+
+## 6)Dataset de testeo (Trabajar con dataset de TESTEO)
+
+### a) Leer el archivo titanic_complete_test.csv y transformar las variables Survived, Pclass y Embarked a factor
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+#Se lee el dataset y se procede a revisar la estructura de los datos
+titanic_complete_testeo <- read_csv("C:/Users/Jad/Documents/Maestria DM/Enfoque estadistico del aprendizaje/EEA2019JD/EEA2019/TP-3/titanic_complete_test.csv")
+#Las variables Survived, Pclass, Embarked se convierten a factor
+titanic_complete_testeo$Survived <- as.factor(titanic_complete_testeo$Survived)
+titanic_complete_testeo$Pclass <- as.factor(titanic_complete_testeo$Pclass)
+titanic_complete_testeo$Embarked <- as.factor(titanic_complete_testeo$Embarked)
+glimpse(titanic_complete_testeo)
+```
+
+### b)Con el modelo y punto de corte elegidos clasificar a las personas del dataset de testing.
+```{r echo=TRUE, warning=FALSE}
+testeo <- augment(x = elect_model,newdata = titanic_complete_testeo, type.predict = 'response')
+testeo <- testeo %>% 
+  mutate(predicted_class = if_else(.fitted >= sel_cutoff, 1, 0) %>% 
+           as.factor(),
+         Survived = factor(Survived)
+)
+
+testeo %>%
+  select(PassengerId, Sex, Age, .fitted,Pclass, predicted_class) %>%
+  arrange(-.fitted)
+```
+
+### c) Obtener la matriz de confusión y comparar con la obtenida en el punto 5)c).
+```{r echo=TRUE, warning=FALSE}
+# Creamos la matriz de confusión
+confusionMatrix(table(testeo$Survived, testeo$predicted_class), positive = "1")
+```
